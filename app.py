@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
+import plotly.graph_objects as go
 
 # Title of the app
 st.title("Volume Breakout Analyzer")
@@ -63,31 +64,59 @@ if st.button("Generate Report"):
             columns_to_display_with_returns = ['Close', 'High', 'Low', 'Open', 'Volume', 'PriceChange', 'Return']
             breakout_days_with_returns_limited = breakout_days[columns_to_display_with_returns]
 
+            # Plot candlestick chart with breakout markers
+            fig = go.Figure()
+
+            # Add candlestick chart
+            fig.add_trace(go.Candlestick(
+                x=data.index,
+                open=data['Open'],
+                high=data['High'],
+                low=data['Low'],
+                close=data['Close'],
+                name='Candlestick'
+            ))
+
+            # Add breakout markers
+            fig.add_trace(go.Scatter(
+                x=breakout_days.index,
+                y=breakout_days['Close'],
+                mode='markers',
+                name='Breakout Days',
+                marker=dict(color='red', size=8, symbol='cross')
+            ))
+
+            # Add volume bar chart
+            fig.add_trace(go.Bar(
+                x=data.index,
+                y=data['Volume'],
+                name='Volume',
+                marker=dict(color='blue'),
+                yaxis='y2'  # Secondary y-axis for volume
+            ))
+
+            # Layout settings
+            fig.update_layout(
+                title=f"{ticker} Price and Volume Breakout Chart",
+                xaxis_title="Date",
+                yaxis_title="Price",
+                yaxis2=dict(
+                    title="Volume",
+                    overlaying="y",
+                    side="right"
+                ),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+
+            # Display the chart
+            st.plotly_chart(fig)
+
             # Format the Date column to remove the time portion
             breakout_days_with_returns_limited.reset_index(inplace=True)
             breakout_days_with_returns_limited['Date'] = breakout_days_with_returns_limited['Date'].dt.strftime('%Y-%m-%d')
 
-            # Define a function for conditional formatting of the 'Return' column
-            def color_returns(val):
-                if pd.notnull(val):  # Check if the value is not NaN
-                    color = "green" if val > 0 else "red"
-                    return f"color: {color}"
-                return ""
-
-            # Use pandas Styler for formatting
-            styled_df = breakout_days_with_returns_limited.style.format({
-                'Close': "{:,.2f}",
-                'High': "{:,.2f}",
-                'Low': "{:,.2f}",
-                'Open': "{:,.2f}",
-                'Volume': "{:,.0f}",
-                'PriceChange': "{:,.2f}",
-                'Return': "{:,.2f}"
-            }).applymap(color_returns, subset=['Return'])
-
-            # Display the styled DataFrame
-            st.write("Breakout Days with Returns")
-            st.dataframe(styled_df)
+            # Display Breakout Days with Returns
+            st.write("Breakout Days with Returns", breakout_days_with_returns_limited)
 
             # Convert to CSV
             csv = breakout_days_with_returns_limited.to_csv(index=False)
